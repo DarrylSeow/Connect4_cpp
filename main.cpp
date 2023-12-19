@@ -279,6 +279,7 @@ void settings() {
             string new_diff;
             cout << line << "\nDifficulty can only range from 1 to "<< max_difficulty <<" , with 1 being the easiest and " << max_difficulty << " being the hardest.\n";
             cout << "\nCurrently implemented difficulty levels:\n(1) ---- Makes random moves, only becomes a tryhard at the last moment. Cannot use POP moves unless board is full.\n";
+            cout << "(2) ---- Uses a basic strategy to increase its chances of winning. Allowed to use pop moves (I just need to figure out how).\n";
             cout << "\nPlease input the difficulty level of the CPU player.\n" << line << '\n';
             getline(cin, new_diff);
             try {
@@ -855,7 +856,7 @@ game_move horizontal_dropwin(string symbol) {
                     return action;
                 } else if (board[row_index+1][action_col_idx-1] != box) { // otherwise check if there is solid ground to place a block in the empty space
                     action.col = action_col_idx;
-                    cout << "drop at col " << action_col_idx <<'\n';
+                    //cout << "drop at col " << action_col_idx <<'\n';
                     return action;
                 } // if no ground to drop, do nothing
             }
@@ -958,6 +959,7 @@ bool execute_move(game_move wanted_move, string symbol) {
 
 // basic survival instinct of the cpu
 // returns true if a move was made
+// bool pop determines whether cpu0 can make pop moves
 bool cpu0(bool pop, string symbol) {
     // algorithm that scans the current board state and sees if there are any no-brainer moves
     // aka 3 in a rows of either type
@@ -1069,6 +1071,33 @@ void cpu2(string symbol) {
         // will try to defend if you have an imminent 3 in a row
         // otherwise, will try to follow its strategy
         // able to use pop moves
+    game_move cpu2_move;
+    cpu2_move.pop = false; // by default, don't anyhow pop
+    if (board_full()) {
+        cpu2_move.pop = true;
+    }
+    bool valid_move = false;
+    bool survival_instinct = cpu0(true, symbol); // allow popping in survival situations
+    if (!survival_instinct) {
+        // try to drop pieces down the middle
+        valid_move = drop_piece(4, symbol);
+        if (!valid_move) {
+            // if cannot, then just do a random move
+            do {
+            cpu2_move.col = rand_col(); // select a random column to affect
+            if (cpu2_move.pop) {
+                valid_move = pop_piece(cpu2_move.col, symbol);
+            } else {
+                valid_move = drop_piece(cpu2_move.col, symbol);
+            }
+            } while (!valid_move);
+            cout << "Make a move at column " << cpu2_move.col << ".\n" << line << '\n';
+
+        }
+            
+        
+    }
+
 }
 // brain of level 3 cpu
 void cpu3() {
@@ -1287,7 +1316,7 @@ void command_centre(string cmd) {
 int main() {
     //char command[20]; //max of 20 characters in a command
     string command;
-    string startup_msg = "\nWelcome to the Conncet4 main menu! \nType /help for a list of commands or /start to start the game!\n";
+    string startup_msg = "\nWelcome to the Connect4 main menu! \nType /help for a list of commands or /start to start the game!\n";
     do {
         cout << line << startup_msg << line << '\n';
         getline(cin, command);
