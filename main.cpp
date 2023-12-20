@@ -3,6 +3,7 @@
 #include <random>
 #include <array>
 #include <chrono>
+#include <algorithm>
 using namespace std;
 
 //initialize global variables
@@ -359,7 +360,7 @@ bool drop_piece(int column_number, string player_sym) {
         gravity();
         return true;
     } else {
-        cout << " Your piece met some resistance! Try another move.\n";
+        cout << "Your piece met some resistance! Try another move.\n";
         return false;
     }
     
@@ -1064,30 +1065,181 @@ void cpu1(string symbol) {
     }        
 }
 
+struct abuse_outcome {
+    bool abuse_detected_and_stopped; // valid move
+    array<int, 2> forbidden_column_number = {0, 0}; // random move is not allowed to drop pieces in forbidden col
+    // forbidden_column_number goes from 1 to 7
+};
+abuse_outcome abuse_check(string symbol) {
+    string opp_symb = player_1;
+    abuse_outcome outcome;
+    outcome.abuse_detected_and_stopped = false;
+    if (symbol == player_1) {
+        opp_symb = player_2;
+    }
+    bool valid_move = false; // unused
+    int row_index = 0;
+    for (auto& row : board) {
+        string middle_element = row[3];
+        if (middle_element == opp_symb) {
+            // possible abuse
+
+            // test for left side abuse
+            int wanted_col = 0;
+            int opp_symb_counter = 1;
+            int box_counter = 0;
+            if (row[1] == opp_symb) {
+                opp_symb_counter++;
+            } else if (row[1] == box) {
+                box_counter++;
+                wanted_col = 2;
+            }
+            if (row[2] == opp_symb) {
+                opp_symb_counter++;
+            } else if (row[2] == box) {
+                box_counter++;
+                wanted_col = 3;
+            }
+            if (box_counter == 1 && opp_symb_counter == 2) {
+                // abuse found
+                if (row_index == num_rows-1) {
+                        // if on the ground
+                        outcome.abuse_detected_and_stopped = drop_piece(wanted_col, symbol);
+                        cout << "Make a move at column " << wanted_col << ".\n" << line << '\n';
+                } else if (board[row_index+1][wanted_col-1] != box) {
+                        outcome.abuse_detected_and_stopped = drop_piece(wanted_col, symbol);
+                        cout << "Make a move at column " << wanted_col << ".\n" << line << '\n';
+                } else {
+                        outcome.forbidden_column_number[0] = wanted_col;
+                        if (wanted_col == 2) {
+                            outcome.forbidden_column_number[1] = 5;
+                        }
+
+                }
+            }
+
+            if (outcome.abuse_detected_and_stopped) {
+                return outcome;
+            }
+            // test for  right side abuse
+            wanted_col = 0;
+            opp_symb_counter = 1;
+            box_counter = 0;
+            if (row[4] == opp_symb) {
+                opp_symb_counter++;
+            } else if (row[4] == box) {
+                box_counter++;
+                wanted_col = 5;
+            }
+            if (row[5] == opp_symb) {
+                opp_symb_counter++;
+            } else if (row[5] == box) {
+                box_counter++;
+                wanted_col = 6;
+            }
+            if (box_counter == 1 && opp_symb_counter == 2) {
+                // abuse found
+                if (row_index == num_rows-1) {
+                        // if on the ground
+                        outcome.abuse_detected_and_stopped = drop_piece(wanted_col, symbol);
+                        cout << "Make a move at column " << wanted_col << ".\n" << line << '\n';
+                } else if (board[row_index+1][wanted_col-1] != box) {
+                        outcome.abuse_detected_and_stopped = drop_piece(wanted_col, symbol);
+                        cout << "Make a move at column " << wanted_col << ".\n" << line << '\n';
+                } else {
+                        outcome.forbidden_column_number[0] = wanted_col;
+                        if (wanted_col == 6) {
+                            outcome.forbidden_column_number[1] = 3;
+                        }
+
+                }
+            }
+            return outcome;
+            
+
+            /*if ((row[2] == opp_symb && row[1] == box) || (row[4] == opp_symb && row[5] == box)) {
+                // even more likely to find abuse
+                if (row_index == num_rows-1) {
+                    // abuse confirmed, drop a piece
+                    if (row[2] == opp_symb) {
+                        outcome.abuse_detected_and_stopped = drop_piece(5, symbol);
+                        cout << "Make a move at column 5.\n" << line << '\n';
+                    } else {
+                        outcome.abuse_detected_and_stopped = drop_piece(2, symbol);
+                        cout << "Make a move at column 2.\n" << line << '\n';
+                    }
+                    return outcome;
+                } else { // for cases not on ground row
+                    // check if there is solid ground beneath either side
+                    if (board[row_index+1][1] != box && row[2] == opp_symb) {
+                    // if have, drop a piece there, if dh, designate that column as a forbidden column
+                        outcome.abuse_detected_and_stopped = drop_piece(2, symbol);
+                        cout << "Make a move at column 2.\n" << line << '\n';
+                    } else if (board[row_index+1][5] != box && row[4] == opp_symb) {
+                        outcome.abuse_detected_and_stopped = drop_piece(5, symbol);
+                        cout << "Make a move at column 5.\n" << line << '\n';
+                    } else if (board[row_index+1][1] == box && row[2] == opp_symb) {
+                        outcome.forbidden_column_number = {2, 5};
+                    } else if (board[row_index+1][5] == box && row[4] == opp_symb) {
+                        outcome.forbidden_column_number = {3, 6};
+                    }
+                    return outcome;
+                }
+            }*/
+        }
+        row_index++;
+    }
+    return outcome;
+}   
+/*
+notes:
+for now, this cpu is still quite abusable if it goes second.
+I can just drop at the middle column and for a horizontal row on the ground while it tries to build its tower.
+By the time the bot notices, it's too late.
+--> top stop this, scan if the opponent has dropped 2 in a row at the ground row, centered at column 4
+
+also, it still can't use pop moves because cpu0() can't use pop moves. might use the checkwin() function to implement pop moves for cpu0.
+*/
 // brain of level 2 cpu
 void cpu2(string symbol) {
     // level 2 cpu follows a set gameplan/stragey
         // will snap up a win if a 3 in a row is present
-        // will try to defend if you have an imminent 3 in a row
+        // will try to defend if you have an imminent win
         // otherwise, will try to follow its strategy
         // able to use pop moves
     game_move cpu2_move;
     cpu2_move.pop = false; // by default, don't anyhow pop
     if (board_full()) {
         cpu2_move.pop = true;
+        // pop a piece without dying
     }
     bool valid_move = false;
+    abuse_outcome abusing;
     bool survival_instinct = cpu0(true, symbol); // allow popping in survival situations
+    
     if (!survival_instinct) {
-        // try to drop pieces down the middle
-        valid_move = drop_piece(4, symbol);
+        // check if opponent is abusing and stop that abuse
+        // abusing = true means abuse was detected and stopped
+        abusing = abuse_check(symbol);
+        if (abusing.abuse_detected_and_stopped) {
+            valid_move = true; // a valid move has been made
+        } else {
+            // try to drop pieces down the middle if no abuse detected
+            valid_move = drop_piece(4, symbol);
+        }
+
         if (!valid_move) {
             // if cannot, then just do a random move
             do {
             cpu2_move.col = rand_col(); // select a random column to affect
             if (cpu2_move.pop) {
                 valid_move = pop_piece(cpu2_move.col, symbol);
+            } else if (find(begin(abusing.forbidden_column_number), end(abusing.forbidden_column_number), cpu2_move.col) != end(abusing.forbidden_column_number)) {
+                // check if the random column number is one of the two forbidden columns
+                cout << "column forbidden.\n";
+                continue;
             } else {
+                // if not forbidden, attempt to drop
                 valid_move = drop_piece(cpu2_move.col, symbol);
             }
             } while (!valid_move);
