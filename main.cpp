@@ -18,7 +18,7 @@ array<int, 2> scoreboard = {0, 0};
 int num_rows = 6;
 string player_1 = " o "; // player 1's token, can be changed to a different string in settings() (when playing vs cpu, the user is always player 1)
 string player_2 = " x "; // player 2's token, can be changed to a different string in settings()
-int cpu_difficulty = 1; // difficulty of computer opponent, 0 is easiest
+int cpu_difficulty = 2; // difficulty of computer opponent, 0 is easiest
 
 // funny easter egg
 // doing some things might cause the game to lose patience and turn on menal responses
@@ -323,14 +323,14 @@ void settings() {
 
 
 // applies gravity to the entire board
-void gravity() {
+void gravity(vector<vector<string>>& brd) {
     //apply gravity the same number of times as the number of rows
     int nrows = num_rows;
     while (nrows > 0) {    
         bool skip_row = true;
         vector<string> prev_row;
         int row_index = 0;
-        for (auto& row : board) {
+        for (auto& row : brd) {
             if (skip_row) {
                 skip_row = false; // skip first row
             } else {
@@ -338,7 +338,7 @@ void gravity() {
                 for (auto& element : row) {
                 if (element == box && prev_row[col_index] != box) {
                     element = prev_row[col_index];
-                    board[row_index-1][col_index] = box;
+                    brd[row_index-1][col_index] = box;
                 }
                 col_index++;
             }
@@ -357,14 +357,24 @@ bool drop_piece(int column_number, string player_sym) {
     if (board[0][column_number-1] == box) {
         board[0][column_number-1] = player_sym;
         //apply gravity
-        gravity();
+        gravity(board);
         return true;
     } else {
         cout << "Your piece met some resistance! Try another move.\n";
         return false;
     }
-    
-    
+}
+
+bool cpu_drop_piece(int column_number, string player_sym) {
+    // change board at top row (drop a piece there) if there is space
+    if (board[0][column_number-1] == box) {
+        board[0][column_number-1] = player_sym;
+        //apply gravity
+        gravity(board);
+        return true;
+    } else {
+        return false;
+    }   
 }
 
 //returns true only if a successful move has been made
@@ -374,13 +384,26 @@ bool pop_piece(int column_number, string player_sym)  {
     if (board[num_rows-1][column_number-1] == player_sym) {
         board[num_rows-1][column_number-1] = box;
         //apply gravity
-        gravity();
+        gravity(board);
+        return true;
     } else {
         cout << "You can only pop your own pieces! Try another move.\n";
         return false;
     }
 }
 
+// pop piece function for cpu player
+bool cpu_pop_piece(int column_number, string player_sym, vector<vector<string>>& brd) {
+    // check if move is legal
+    if (brd[num_rows-1][column_number-1] == player_sym) {
+        brd[num_rows-1][column_number-1] = box;
+        //apply gravity
+        gravity(brd);
+        return true;
+    } else {
+        return false;
+    }
+}
 /*
 random_device rd;
 mt19937 gen(rd());
@@ -411,7 +434,7 @@ struct status {
     int winner_id;
 }; // need this semicolon
 
-status check_upright_diag() {
+status check_upright_diag(const vector<vector<string>>& brd) {
     status result;
     const int start_row_index = 3;
     const int max_col_idx = num_cols-3;
@@ -419,7 +442,7 @@ status check_upright_diag() {
     bool player_2_victory = false;
 
     int row_index = 0;
-    for (const auto& row : board) {
+    for (const auto& row : brd) {
         if (row_index < start_row_index) {
             row_index++;
             continue;
@@ -430,7 +453,7 @@ status check_upright_diag() {
             if (col_index == max_col_idx) {
                 break;
             } else if (element != box) {
-                while (board[row_index - in_a_urdiag][col_index + in_a_urdiag] == element) {
+                while (brd[row_index - in_a_urdiag][col_index + in_a_urdiag] == element) {
                     in_a_urdiag++;
                 }
                 if (in_a_urdiag > 3 && element == player_1) {
@@ -462,21 +485,21 @@ status check_upright_diag() {
     }
 }
 
-status check_horizontal() {
+status check_horizontal(const vector<vector<string>>& brd) {
     status result;
     const int max_col_idx = num_cols-3;
     bool player_1_victory = false;
     bool player_2_victory = false;
 
     int row_index = 0;
-    for (const auto& row : board) {
+    for (const auto& row : brd) {
         int col_index = 0;
         for (const auto& element : row) {
             int in_a_row = 1;
             if (col_index == max_col_idx) {
                 break;
             } else if (element != box) {
-                while (board[row_index][col_index + in_a_row] == element) {
+                while (brd[row_index][col_index + in_a_row] == element) {
                     in_a_row++;
                 }
                 if (in_a_row > 3 && element == player_1) {
@@ -508,14 +531,14 @@ status check_horizontal() {
     }
 }
 
-status check_vertical() {
+status check_vertical(const vector<vector<string>>& brd) {
     status result;
     const int start_row_index = 3;
     bool player_1_victory = false;
     bool player_2_victory = false;
 
     int row_index = 0;
-    for (const auto& row : board) {
+    for (const auto& row : brd) {
         if (row_index < start_row_index) {
             row_index++;
             continue;
@@ -524,7 +547,7 @@ status check_vertical() {
         for (const auto& element : row) {
             int in_a_col = 1;
             if (element != box) {
-                while (board[row_index - in_a_col][col_index] == element) {
+                while (brd[row_index - in_a_col][col_index] == element) {
                     in_a_col++;
                 }
                 if (in_a_col > 3 && element == player_1) {
@@ -556,7 +579,7 @@ status check_vertical() {
     }
 }
 
-status check_upleft_diag() {
+status check_upleft_diag(const vector<vector<string>>& brd) {
     status result;
     const int start_row_index = 3;
     const int start_col_index = 3;
@@ -564,7 +587,7 @@ status check_upleft_diag() {
     bool player_2_victory = false;
 
     int row_index = 0;
-    for (const auto& row : board) {
+    for (const auto& row : brd) {
         if (row_index < start_row_index) {
             row_index++;
             continue;
@@ -578,7 +601,7 @@ status check_upleft_diag() {
                 continue;
             } else if (element != box) {
                 //cout << "checking row index " << row_index << " col index " << col_index << '\n';
-                while (board[row_index - in_a_uldiag][col_index - in_a_uldiag] == element) {
+                while (brd[row_index - in_a_uldiag][col_index - in_a_uldiag] == element) {
                     in_a_uldiag++;
                 }
                 if (in_a_uldiag > 3 && element == player_1) {
@@ -614,7 +637,7 @@ status check_upleft_diag() {
 //winner_id = 1 means player 1 wins
 //winner_id = 2 means player 2 wins
 //winner_id = 3 means both players win
-status checkwin() {
+status checkwin(const vector<vector<string>>& brd) {
     status final_result;
     const int start_row_idx = 3;
     const int max_col_idx = num_cols-4;
@@ -624,22 +647,22 @@ status checkwin() {
     // some code that checks if anyone has won
 
     //first check up right diagonals
-    status ur_result = check_upright_diag();
+    status ur_result = check_upright_diag(brd);
     if (ur_result.winner_id == 3) {
         return ur_result; // return if two parallel rows
     }
 
-    status ul_result = check_upleft_diag();
+    status ul_result = check_upleft_diag(brd);
     if (ur_result.winner_id == 3) {
         return ur_result; // return if two parallel rows
     }
 
-    status horizontal_result = check_horizontal();
+    status horizontal_result = check_horizontal(brd);
     if (horizontal_result.winner_id == 3) {
         return horizontal_result; // return if two parallel rows
     }
 
-    status vertical_result = check_vertical();
+    status vertical_result = check_vertical(brd);
     if (vertical_result.winner_id == 3) {
         return vertical_result; // return if two parallel rows
     }
@@ -732,7 +755,7 @@ void two_player_gameloop() {
             }
             if (valid_move) {
                 // after a valid move has been made, check if someone has won and update check_win accordingly
-                status results = checkwin();
+                status results = checkwin(board);
                 if (results.winner_id == 3 || results.winner_id == next_player_id) { // you let your opponent win on your turn
                     display_board(board);
                     // send defeat message
@@ -947,15 +970,42 @@ game_move diagonal_dropwin(string symbol, int direction) {
     return action;
 }
 
-// tries to execute a given game_move. returns true if successful.
+// tries to execute a given game_move on the live game board. returns true if successful.
 bool execute_move(game_move wanted_move, string symbol) {
     if (wanted_move.col > 0 && !wanted_move.pop) {
-        return drop_piece(wanted_move.col, symbol);
+        return cpu_drop_piece(wanted_move.col, symbol);
     } else if (wanted_move.col > 0) {
-        return pop_piece(wanted_move.col, symbol);
+        return cpu_pop_piece(wanted_move.col, symbol, board);
     } else {
         return false;
     }
+}
+
+game_move pop_win(string symbol) {
+    // make a deep copy of board
+    // try to pop every column, then checkwin()
+    int cpu_player_id = 2;
+    if (symbol == player_1) {
+        cpu_player_id = 1;
+    }
+    bool valid_move = false;
+    array<int, 7> valid_col_nums = {1, 2, 3, 4, 5, 6, 7};
+    game_move action;
+    action.pop = true; // we are only looking for good pop moves in this function
+    action.col = 0;
+    for (const int& num : valid_col_nums) {
+        vector<vector<string>> deepCopy(begin(board), end(board));
+        // try popping column num
+        valid_move = cpu_pop_piece(num, symbol, deepCopy);
+        if (valid_move) {
+            status results = checkwin(deepCopy);
+            if (results.winner_id == cpu_player_id) {
+                action.col = num;
+                return action;
+            }
+        }
+    }
+    return action;
 }
 
 // basic survival instinct of the cpu
@@ -1001,6 +1051,15 @@ bool cpu0(bool pop, string symbol) {
     // it is not possible to stop a pop-move victory by dropping so no point
     if (pop) {
         // run pop scans here
+        game_move popwin = pop_win(symbol);
+        if (popwin.col > 0) {
+            cout << "Win by popping at column " << popwin.col << ".\n" << line << '\n';
+            return execute_move(popwin, symbol);
+        }
+        
+        // or make an undo function?? so we don't have to copy the board?
+
+
     }
 
     game_move vert_loss = vertical_win(opp_symb);
@@ -1055,9 +1114,9 @@ void cpu1(string symbol) {
         do {
             cpu1_move.col = rand_col(); // select a random column to affect
             if (cpu1_move.pop) {
-                valid_move = pop_piece(cpu1_move.col, symbol);
+                valid_move = cpu_pop_piece(cpu1_move.col, symbol, board);
             } else {
-                valid_move = drop_piece(cpu1_move.col, symbol);
+                valid_move = cpu_drop_piece(cpu1_move.col, symbol);
             }
         } while (!valid_move);
         //cout << "Make a random move at column " << cpu1_move.col << ".\n";
@@ -1081,6 +1140,11 @@ abuse_outcome abuse_check(string symbol) {
     int row_index = 0;
     for (auto& row : board) {
         string middle_element = row[3];
+        /*cout << "row " << row_index << '\n';
+        for (const auto& element : row) {
+            cout << element << " ";
+        }*/
+
         if (middle_element == opp_symb) {
             // possible abuse
 
@@ -1093,15 +1157,19 @@ abuse_outcome abuse_check(string symbol) {
             } else if (row[1] == box) {
                 box_counter++;
                 wanted_col = 2;
+                //cout << "box detected at column 2 \n";
             }
             if (row[2] == opp_symb) {
                 opp_symb_counter++;
             } else if (row[2] == box) {
                 box_counter++;
                 wanted_col = 3;
+                //cout << "box detected at column 3 \n";
             }
+            //cout << "box_counter " << box_counter << " opp_symb_counter " << opp_symb_counter << '\n';
             if (box_counter == 1 && opp_symb_counter == 2) {
                 // abuse found
+                //cout << "abuse detected at row " << row_index << '\n';
                 if (row_index == num_rows-1) {
                         // if on the ground
                         outcome.abuse_detected_and_stopped = drop_piece(wanted_col, symbol);
@@ -1119,6 +1187,7 @@ abuse_outcome abuse_check(string symbol) {
             }
 
             if (outcome.abuse_detected_and_stopped) {
+                // cout << "stopped abuse \n";
                 return outcome;
             }
             // test for  right side abuse
@@ -1154,8 +1223,9 @@ abuse_outcome abuse_check(string symbol) {
 
                 }
             }
-            return outcome;
-            
+            if (outcome.abuse_detected_and_stopped) {
+                return outcome;
+            }
 
             /*if ((row[2] == opp_symb && row[1] == box) || (row[4] == opp_symb && row[5] == box)) {
                 // even more likely to find abuse
@@ -1223,9 +1293,10 @@ void cpu2(string symbol) {
         abusing = abuse_check(symbol);
         if (abusing.abuse_detected_and_stopped) {
             valid_move = true; // a valid move has been made
+            //cout << "abuse detected and stopped\n";
         } else {
             // try to drop pieces down the middle if no abuse detected
-            valid_move = drop_piece(4, symbol);
+            valid_move = cpu_drop_piece(4, symbol);
         }
 
         if (!valid_move) {
@@ -1233,14 +1304,14 @@ void cpu2(string symbol) {
             do {
             cpu2_move.col = rand_col(); // select a random column to affect
             if (cpu2_move.pop) {
-                valid_move = pop_piece(cpu2_move.col, symbol);
+                valid_move = cpu_pop_piece(cpu2_move.col, symbol, board);
             } else if (find(begin(abusing.forbidden_column_number), end(abusing.forbidden_column_number), cpu2_move.col) != end(abusing.forbidden_column_number)) {
                 // check if the random column number is one of the two forbidden columns
                 cout << "column forbidden.\n";
                 continue;
             } else {
                 // if not forbidden, attempt to drop
-                valid_move = drop_piece(cpu2_move.col, symbol);
+                valid_move = cpu_drop_piece(cpu2_move.col, symbol);
             }
             } while (!valid_move);
             cout << "Make a move at column " << cpu2_move.col << ".\n" << line << '\n';
@@ -1335,7 +1406,7 @@ void singleplayer_gameloop() {
                 }
                 if (valid_move) {
                     // after a valid move has been made, check if someone has won and update check_win accordingly
-                    status results = checkwin();
+                    status results = checkwin(board);
                     if (results.winner_id == 3 || results.winner_id == next_player_id) { // you let your opponent win on your turn
                         display_board(board);
                         // send defeat message
@@ -1367,7 +1438,7 @@ void singleplayer_gameloop() {
         } else {
             cout << line << '\n';
             cpu_move(symb);
-            status results = checkwin();
+            status results = checkwin(board);
             if (results.winner_id == 3 || results.winner_id == next_player_id) { // you let your opponent win on your turn
                 display_board(board);
                 // send defeat message
