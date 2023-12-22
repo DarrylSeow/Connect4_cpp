@@ -280,7 +280,7 @@ void settings() {
             string new_diff;
             cout << line << "\nDifficulty can only range from 1 to "<< max_difficulty <<" , with 1 being the easiest and " << max_difficulty << " being the hardest.\n";
             cout << "\nCurrently implemented difficulty levels:\n(1) ---- Makes random moves, only becomes a tryhard at the last moment. Cannot use POP moves unless board is full.\n";
-            cout << "(2) ---- Uses a basic strategy to increase its chances of winning. Allowed to use pop moves (I just need to figure out how).\n";
+            cout << "(2) ---- Uses a basic strategy to increase its chances of winning. Allowed to use pop moves.\n";
             cout << "\nPlease input the difficulty level of the CPU player.\n" << line << '\n';
             getline(cin, new_diff);
             try {
@@ -1008,6 +1008,57 @@ game_move pop_win(string symbol) {
     return action;
 }
 
+game_move pop_loss(string symbol) {
+    // check if opponent can win in more than one way out of diagonals and horizontals (if it's vertical + 1 the game is lost anyway)
+    int opp_wincounter = 0; // count the number of ways the opponent can win next turn by dropping
+    string opp_symb = player_1;
+    //int cpu_player_id = 2;
+    if (symbol == player_1) {
+        //cpu_player_id = 1;
+        opp_symb = player_2;
+    }
+    bool valid_move = false;
+    array<int, 7> valid_col_nums = {1, 2, 3, 4, 5, 6, 7};
+    game_move action;
+    action.pop = true; // we are only looking for good pop moves in this function
+    action.col = 0;
+    for (const int& num : valid_col_nums) {
+        vector<vector<string>> deepCopy(begin(board), end(board));
+        // try popping column num
+        valid_move = cpu_pop_piece(num, symbol, deepCopy);
+        if (valid_move) { // if a valid move was made
+            // count the number of ways the opponent can win
+            game_move vert_loss = vertical_win(opp_symb);
+            if (vert_loss.col > 0) {
+                opp_wincounter++;
+            }
+            game_move hori_droploss = horizontal_dropwin(opp_symb);
+            if (hori_droploss.col > 0) {
+                opp_wincounter++;
+            }
+            game_move ur_diag_droploss = diagonal_dropwin(opp_symb, 1);
+            if (ur_diag_droploss.col > 0) {
+                opp_wincounter++;
+            }
+            game_move ul_diag_droploss = diagonal_dropwin(opp_symb, -1);
+            if (ul_diag_droploss.col > 0) {
+                opp_wincounter++;
+            }
+
+            if (opp_wincounter == 0) {
+                action.col = num;
+                return action;
+            } else if (opp_wincounter < 2) {
+                action.col = num;
+            }
+
+            
+        }
+    }
+    return action;
+
+}
+
 // basic survival instinct of the cpu
 // returns true if a move was made
 // bool pop determines whether cpu0 can make pop moves
@@ -1057,41 +1108,62 @@ bool cpu0(bool pop, string symbol) {
             return execute_move(popwin, symbol);
         }
         
-        // or make an undo function?? so we don't have to copy the board?
+        // or make an undo function?? so we don't have to copy the board? nah
+        
+        // check if opponent can win in more than one way out of diagonals and horizontals (if it's vertical + 1 the game is lost anyway)
+        /*game_move poploss = pop_loss(symbol);
+        if (poploss.col >0) {
+            cout << "Make a move at column " << poploss.col << ".\n" << line << '\n';
+            return execute_move(poploss, symbol);
+        }*/
 
 
     }
 
+    game_move stoploss_move;
+    int opp_wincounter = 0;
     game_move vert_loss = vertical_win(opp_symb);
     if (vert_loss.col > 0) {
         //cout << "Prevent oppoent's vertical win by dropping at column " << vert_loss.col << ".\n";
-        cout << "Make a move at column " << vert_loss.col << ".\n" << line << '\n';
-        return execute_move(vert_loss, symbol); // stop loss NOW
+        // cout << "Make a move at column " << vert_loss.col << ".\n" << line << '\n';
+        // return execute_move(vert_loss, symbol); // stop loss NOW
+        stoploss_move = vert_loss;
+        opp_wincounter++;
     }
 
     game_move hori_droploss = horizontal_dropwin(opp_symb);
     if (hori_droploss.col > 0) {
         //cout << "Prevent opponent's horizontal win by dropping at column " << hori_droploss.col << ".\n";
-        cout << "Make a move at column " << hori_droploss.col << ".\n" << line << '\n';
-        return execute_move(hori_droploss, symbol); // stop loss NOW
+        // cout << "Make a move at column " << hori_droploss.col << ".\n" << line << '\n';
+        // return execute_move(hori_droploss, symbol); // stop loss NOW
+        stoploss_move = hori_droploss;
+        opp_wincounter++;
     }
 
     game_move ur_diag_droploss = diagonal_dropwin(opp_symb, 1);
     if (ur_diag_droploss.col > 0) {
         //cout << "Prevent opponent's up-right diagonal win by dropping at column " << ur_diag_droploss.col << ".\n";
-        cout << "Make a move at column " << ur_diag_droploss.col << ".\n" << line << '\n';
-        return execute_move(ur_diag_droploss, symbol);
+        // cout << "Make a move at column " << ur_diag_droploss.col << ".\n" << line << '\n';
+        // return execute_move(ur_diag_droploss, symbol);
+        stoploss_move = ur_diag_droploss;
+        opp_wincounter++;
     }
     game_move ul_diag_droploss = diagonal_dropwin(opp_symb, -1);
     if (ul_diag_droploss.col > 0) {
         //cout << "Prevent opponent's up-left diagonal win by dropping at column " << ul_diag_droploss.col << ".\n";
-        cout << "Make a move at column " << ul_diag_droploss.col << ".\n" << line << '\n';
-        return execute_move(ul_diag_droploss, symbol);
+        // cout << "Make a move at column " << ul_diag_droploss.col << ".\n" << line << '\n';
+        // return execute_move(ul_diag_droploss, symbol);
+        stoploss_move = ul_diag_droploss;
+        opp_wincounter++;
     }
 
-    // if no vertical opportunities, check for horizontal opportunities
-
-
+    if (opp_wincounter == 1 || !pop) {
+        cout << "Make a move at column " << stoploss_move.col << ".\n" << line << '\n';
+        return execute_move(stoploss_move, symbol);
+    } else if (opp_wincounter > 1 && pop) {
+        cout << "devax\n" << line << '\n';
+        return execute_move(pop_loss(symbol), symbol);
+    }
     return false;
 }
 // brain of level 1 cpu
